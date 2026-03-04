@@ -543,9 +543,9 @@ select {
 }
 
 .bottom-bar-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 16px 20px;
 }
 
@@ -582,6 +582,12 @@ select {
     display: inline;
   }
 }
+
+/* Right spacer — exists only to push the grid into 3 columns */
+.bottom-spacer {
+  display: block;
+}
+
 
 /* Mic indicator */
 .mic-indicator {

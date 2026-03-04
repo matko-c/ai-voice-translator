@@ -269,6 +269,12 @@ function stopEverything() {
 }
 
 function activateLang(which) {
+    // iOS Safari blocks SpeechSynthesis if it isn't triggered directly inside
+    // a user-gesture. Fire a silent utterance NOW (while we're still in the
+    // click handler) to unlock the audio context before the async fetch runs.
+    const iosWarmUp = new SpeechSynthesisUtterance('');
+    window.speechSynthesis.speak(iosWarmUp);
+
     stopEverything();
     activeLang = which;
 
