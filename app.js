@@ -7,14 +7,16 @@
 const LANG_NAMES = {
     en: 'English', es: 'Spanish', fr: 'French', de: 'German',
     it: 'Italian', pt: 'Portuguese', ja: 'Japanese', ko: 'Korean',
-    zh: 'Chinese', ar: 'Arabic', hi: 'Hindi', ru: 'Russian'
+    zh: 'Chinese', ar: 'Arabic', hi: 'Hindi', ru: 'Russian',
+    hr: 'Croatian', ta: 'Tamil'
 };
 
 // BCP-47 locale tags for SpeechRecognition & SpeechSynthesis
 const LANG_LOCALE = {
     en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE',
     it: 'it-IT', pt: 'pt-BR', ja: 'ja-JP', ko: 'ko-KR',
-    zh: 'zh-CN', ar: 'ar-SA', hi: 'hi-IN', ru: 'ru-RU'
+    zh: 'zh-CN', ar: 'ar-SA', hi: 'hi-IN', ru: 'ru-RU',
+    hr: 'hr-HR', ta: 'ta-IN'
 };
 
 // Placeholder: "Listening… speak now" in each language
@@ -30,7 +32,9 @@ const PLACEHOLDER_LISTEN = {
     zh: '正在听…请现在说话',
     ar: 'أستمع… تحدث الآن',
     hi: 'सुन रहा हूं… अभी बोलें',
-    ru: 'Слушаю… говорите сейчас'
+    ru: 'Слушаю… говорите сейчас',
+    hr: 'Slušam… govori sada',
+    ta: 'கேட்கிறேன்… இப்போது பேசுங்கள்'
 };
 
 // Placeholder: "Translation will appear here" in each language
@@ -42,11 +46,13 @@ const PLACEHOLDER_TRANSLATE = {
     it: 'La traduzione apparirà qui',
     pt: 'A tradução aparecerá aqui',
     ja: '翻訳がここに表示されます',
-    ko: '번역이 여기에 표시됩니다',
+    ko: '번역이 여기에 표示됩니다',
     zh: '翻译将显示在这里',
     ar: 'ستظهر الترجمة هنا',
     hi: 'अनुवाद यहां दिखाई देगा',
-    ru: 'Перевод появится здесь'
+    ru: 'Перевод появится здесь',
+    hr: 'Prijevod će se pojaviti ovdje',
+    ta: 'மொழிபெயர்ப்பு இங்கே தோன்றும்'
 };
 
 // Idle placeholder in each language: "Tap the button above to speak"
@@ -62,7 +68,9 @@ const PLACEHOLDER_IDLE = {
     zh: '点击上方按钮开始说话',
     ar: 'اضغط على الزر أعلاه للتحدث',
     hi: 'बोलने के लिए ऊपर का बटन दबाएं',
-    ru: 'Нажмите кнопку выше, чтобы говорить'
+    ru: 'Нажмите кнопку выше, чтобы говорить',
+    hr: 'Dodirnite gornji gumb za govor',
+    ta: 'பேச மேலே உள்ள பொத்தானை தட்டவும்'
 };
 
 /* ── DOM Refs ─────────────────────────────────────────────  */
@@ -376,6 +384,34 @@ async function fetchTranslation(text, sourceName, targetName) {
     return data.text;
 }
 
+/* ── Voice Cache ─────────────────────────────────────────── */
+let cachedVoices = [];
+const PREMIUM_KEYWORDS = ['google', 'premium', 'enhanced', 'natural'];
+
+function loadVoices() {
+    cachedVoices = synth.getVoices();
+}
+loadVoices();
+if (synth.onvoiceschanged !== undefined) {
+    synth.onvoiceschanged = loadVoices;
+}
+
+function pickBestVoice(locale) {
+    const langPrefix = locale.split('-')[0];
+    // All voices that match the locale exactly or by language prefix
+    const matches = cachedVoices.filter(
+        v => v.lang === locale || v.lang.startsWith(langPrefix)
+    );
+    if (matches.length === 0) return null;
+
+    // Prefer a premium / high-quality voice
+    const premium = matches.find(v => {
+        const lower = v.name.toLowerCase();
+        return PREMIUM_KEYWORDS.some(kw => lower.includes(kw));
+    });
+    return premium || matches[0];
+}
+
 /* ── Speech Synthesis ────────────────────────────────────── */
 function speakTranslation(text, locale) {
     isTranslating = false;
@@ -384,11 +420,12 @@ function speakTranslation(text, locale) {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = locale;
-    const voices = synth.getVoices();
-    const langPrefix = locale.split('-')[0];
-    const voice = voices.find(v => v.lang === locale) ||
-        voices.find(v => v.lang.startsWith(langPrefix));
-    if (voice) utterance.voice = voice;
+
+    const voice = pickBestVoice(locale);
+    if (voice) {
+        utterance.voice = voice;
+        console.log(`TTS voice: ${voice.name} (${voice.lang})`);
+    }
 
     utterance.onend = () => {
         isSpeaking = false;
@@ -412,9 +449,4 @@ function showError(msg) {
         panel.style.color = '';
         panel.textContent = orig;
     }, 3000);
-}
-
-// Pre-load voices (Chrome loads them async)
-if (synth.onvoiceschanged !== undefined) {
-    synth.onvoiceschanged = () => synth.getVoices();
 }
